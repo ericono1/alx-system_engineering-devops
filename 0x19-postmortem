@@ -1,0 +1,37 @@
+Postmortem Analysis
+
+During the course of the project, an outage occurred on an isolated Ubuntu 14.04 container running an Apache web server. The server started returning 500 Internal Server Errors instead of the expected HTML file that defined a simple Holberton WordPress site.
+
+Debugging Process
+
+The bug debugger, Brennan (BDB), encountered the issue at approximately 19:20 PST and immediately started working on resolving it. Here's a summary of the debugging process:
+
+Checked running processes using the command "ps aux" and found that two apache2 processes, running as root and www-data, were functioning correctly.
+
+Explored the sites-available folder in the /etc/apache2/ directory and determined that the web server was serving content located in /var/www/html/.
+
+Ran the "strace" command on the PID of the root Apache process in one terminal and tested the server using "curl" in another. Unfortunately, the strace output did not provide any useful information.
+
+Repeated step 3, but this time with the PID of the www-data process. This time, strace revealed an error (-1 ENOENT) indicating that the file /var/www/html/wp-includes/class-wp-locale.phpp could not be found.
+
+Inspected the files in the /var/www/html/ directory one by one using Vim pattern matching and found the erroneous ".phpp" file extension in the wp-settings.php file (specifically, line 137, require_once( ABSPATH . WPINC . '/class-wp-locale.php' );).
+
+Corrected the typo by removing the trailing "p" from the line.
+
+Conducted another curl test on the server, and this time it returned a 200 status code, indicating success.
+
+Developed a Puppet manifest, named 0-strace_is_your_friend.pp, to automate the resolution of this error in case of future occurrences. The manifest replaces any "phpp" extensions with "php" in the file /var/www/html/wp-settings.php.
+
+Summation
+
+In summary, the outage was caused by a simple typo in the wp-settings.php file. The WordPress application encountered a critical error when trying to load the file class-wp-locale.phpp, whereas the correct file name was class-wp-locale.php, located in the wp-content directory of the application folder. The fix involved removing the trailing "p" from the file name.
+
+Prevention
+
+To prevent similar outages in the future, it is important to consider the following measures:
+
+Thoroughly test the application before deployment. Conducting extensive testing would have caught this error earlier, allowing for prompt resolution.
+
+Implement status monitoring by enabling a service like UptimeRobot to instantly alert you in case of a website outage.
+
+Note: In response to this error, a Puppet manifest named 0-strace_is_your_friend.pp was created to automate the resolution of identical errors in the future. The manifest replaces any "phpp" extensions in the file /var/www/html/wp-settings.php with "php".
